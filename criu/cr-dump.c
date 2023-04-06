@@ -1802,44 +1802,56 @@ int cr_dump_tasks(pid_t pid)
 		pr_err("Pre dump script failed with %d!\n", pre_dump_ret);
 		goto err;
 	}
+	pr_debug("DUMP ==> 1. init_stats(DUMP_STATS)\n");
 	if (init_stats(DUMP_STATS))
 		goto err;
 
+	pr_debug("DUMP ==> 2. cr_plugin_init(CR_PLUGIN_STAGE__DUMP)\n");
 	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))
 		goto err;
 
+	pr_debug("DUMP ==> 3. lsm_check_opts()\n");
 	if (lsm_check_opts())
 		goto err;
 
+	pr_debug("DUMP ==> 4. irmap_load_cache()\n");
 	if (irmap_load_cache())
 		goto err;
-
+	
+	pr_debug("DUMP ==> 5. cpu_init()\n");
 	if (cpu_init())
 		goto err;
 
+	pr_debug("DUMP ==> 6. vdso_init_dump()\n");
 	if (vdso_init_dump())
 		goto err;
 
+	pr_debug("DUMP ==> 7. cgp_init\n");
 	if (cgp_init(opts.cgroup_props,
 		     opts.cgroup_props ?
 		     strlen(opts.cgroup_props) : 0,
 		     opts.cgroup_props_file))
 		goto err;
 
+	pr_debug("DUMP ==> 8. parse_cg_info()\n");
 	if (parse_cg_info())
 		goto err;
 
+	pr_debug("DUMP ==> 9. prepare_inventory(&he)\n");
 	if (prepare_inventory(&he))
 		goto err;
 
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
+		pr_debug("DUMP ==> 10. cpu_dump_cpuinfo()\n");
 		if (cpu_dump_cpuinfo())
 			goto err;
 	}
 
+	pr_debug("DUMP ==> 11. connect_to_page_server_to_send()\n");
 	if (connect_to_page_server_to_send() < 0)
 		goto err;
 
+	pr_debug("DUMP ==> 12. setup_alarm_handler()\n");
 	if (setup_alarm_handler())
 		goto err;
 
@@ -1849,37 +1861,48 @@ int cr_dump_tasks(pid_t pid)
 	 * afterwards.
 	 */
 
+	pr_debug("DUMP ==> 13. collect_pstree()\n");
 	if (collect_pstree())
 		goto err;
 
+	pr_debug("DUMP ==> 14. collect_pstree_ids()\n");
 	if (collect_pstree_ids())
 		goto err;
 
+	pr_debug("DUMP ==> 15. network_lock()\n");
 	if (network_lock())
 		goto err;
 
+	pr_debug("DUMP ==> 16. collect_file_locks()\n");
 	if (collect_file_locks())
 		goto err;
 
+	pr_debug("DUMP ==> 17. collect_namespaces(true)\n");
 	if (collect_namespaces(true) < 0)
 		goto err;
 
+	pr_debug("DUMP ==> 18. cr_glob_imgset_open\n");
 	glob_imgset = cr_glob_imgset_open(O_DUMP);
 	if (!glob_imgset)
 		goto err;
 
+	pr_debug("DUMP ==> 19. seccomp_collect_dump_filters()\n");
 	if (seccomp_collect_dump_filters() < 0)
 		goto err;
 
+	pr_debug("DUMP ==> 20. get_parent_inventory()\n");
 	/* Errors handled later in detect_pid_reuse */
 	parent_ie = get_parent_inventory();
 
+	pr_debug("DUMP ==> 21. dump_one_task(item, parent_ie)\n");
 	for_each_pstree_item(item) {
 		if (dump_one_task(item, parent_ie))
 			goto err;
 	}
+	
 
 	if (parent_ie) {
+		pr_debug("DUMP ==> 22. inventory_entry__free_unpacked\n");
 		inventory_entry__free_unpacked(parent_ie, NULL);
 		parent_ie = NULL;
 	}
@@ -1890,22 +1913,27 @@ int cr_dump_tasks(pid_t pid)
 	 * given to some newer thread since then, we may be unable to dump
 	 * all this.
 	 */
+	pr_debug("DUMP ==> 23. dead_pid_conflict()\n");
 	if (dead_pid_conflict())
 		goto err;
 
+	pr_debug("DUMP ==> 24. dump_mnt_namespaces()\n");
 	/* MNT namespaces are dumped after files to save remapped links */
 	if (dump_mnt_namespaces() < 0)
 		goto err;
 
+	pr_debug("DUMP ==> 25. dump_file_locks()\n");
 	if (dump_file_locks())
 		goto err;
 
+	pr_debug("DUMP ==> 26. dump_verify_tty_sids()\n");
 	if (dump_verify_tty_sids())
 		goto err;
-
+	pr_debug("DUMP ==> 27. dump_zombies()\n");
 	if (dump_zombies())
 		goto err;
 
+	pr_debug("DUMP ==> 28. dump_pstree()\n");
 	if (dump_pstree(root_item))
 		goto err;
 
@@ -1915,46 +1943,59 @@ int cr_dump_tasks(pid_t pid)
 	 * ipc shared memory, but an ipc namespace is dumped in a child
 	 * process.
 	 */
+	pr_debug("DUMP ==> 29. cr_dump_shmem()\n");
 	ret = cr_dump_shmem();
+	pr_debug("DUMP ==> 29. ret=%d\n", ret);
 	if (ret)
 		goto err;
 
+
 	if (root_ns_mask) {
+		pr_debug("DUMP ==> 30. dump_namespaces(root_item, root_ns_mask)\n");
 		ret = dump_namespaces(root_item, root_ns_mask);
 		if (ret)
 			goto err;
 	}
 
 	if ((root_ns_mask & CLONE_NEWTIME) == 0) {
+		pr_debug("DUMP ==> 31. dump_time_ns(0)\n");
 		ret = dump_time_ns(0);
 		if (ret)
 			goto err;
 	}
 
+	pr_debug("DUMP ==> 32. dump_cgroups()\n");
 	ret = dump_cgroups();
 	if (ret)
 		goto err;
 
+	pr_debug("DUMP ==> 33. fix_external_unix_sockets()\n");
 	ret = fix_external_unix_sockets();
 	if (ret)
 		goto err;
 
+	pr_debug("DUMP ==> 34. tty_post_actions()\n");
 	ret = tty_post_actions();
 	if (ret)
 		goto err;
 
+	pr_debug("DUMP ==> 35. inventory_save_uptime()\n");
 	ret = inventory_save_uptime(&he);
 	if (ret)
 		goto err;
 
 	he.has_pre_dump_mode = false;
 
+	pr_debug("DUMP ==> 36. write_img_inventory()\n");
 	ret = write_img_inventory(&he);
 	if (ret)
 		goto err;
 err:
-	if (parent_ie)
+	if (parent_ie){
+		pr_debug("DUMP ==> 37. inventory_entry__free_unpacked(parent_ie, NULL)\n");
 		inventory_entry__free_unpacked(parent_ie, NULL);
-
+	}
+		
+	pr_debug("DUMP ==> 38. cr_dump_finish(ret)\n");
 	return cr_dump_finish(ret);
 }

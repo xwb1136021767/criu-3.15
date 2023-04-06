@@ -1571,8 +1571,14 @@ static int dump_one_fs(struct mount_info *mi)
 	struct mount_info *t;
 	bool first = true;
 
-	if (mi->is_ns_root || mi->need_plugin || mnt_is_external(mi) || !mi->fstype->dump)
+	if (mi->is_ns_root || mi->need_plugin || mnt_is_external(mi) || !mi->fstype->dump){
+		pr_debug("mi->is_ns_root = %d\n", mi->is_ns_root);
+		pr_debug("mi->need_plugin = %d\n", mi->need_plugin );
+		pr_debug("mnt_is_external(mi) = %d\n", mnt_is_external(mi));
+		pr_debug("!mi->fstype->dump = %d\n", !mi->fstype->dump);
+		pr_debug("DUMP ==>  mi->is_ns_root || mi->need_plugin || mnt_is_external(mi) || !mi->fstype->dump\n");
 		return 0;
+	}
 
 	/* mnt_bind is a cycled list, so list_for_each can't be used here. */
 	for (; &pm->mnt_bind != &mi->mnt_bind || first;
@@ -1585,6 +1591,8 @@ static int dump_one_fs(struct mount_info *mi)
 			continue;
 
 		ret = pm->fstype->dump(pm);
+		pr_debug("ret = pm->fstype->dump(pm), ret = %d\n", ret);
+		
 		if (ret == MNT_UNREACHABLE)
 			continue;
 		if (ret < 0)
@@ -1613,12 +1621,18 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		me.fsname = pm->fsname;
 
 	if (!pm->external) {
-		if (!pm->dumped && dump_one_fs(pm))
+		pr_debug("DUMP ==> !pm->external \n");
+		if (!pm->dumped && dump_one_fs(pm)){
+			pr_debug("DUMP ==> !pm->dumped && dump_one_fs(pm) \n");
 			return -1;
+		}
+			
 
 		if (!fsroot_mounted(pm) &&
-		    pm->fstype->check_bindmount && pm->fstype->check_bindmount(pm))
-			return -1;
+		    pm->fstype->check_bindmount && pm->fstype->check_bindmount(pm)){
+				pr_debug("DUMP ==> !fsroot_mounted(pm) && pm->fstype->check_bindmount && pm->fstype->check_bindmount(pm)\n");
+				return -1;
+			}
 	}
 
 	if (pm->mnt_id == CRTIME_MNT_ID) {
