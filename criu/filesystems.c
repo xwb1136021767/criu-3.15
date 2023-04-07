@@ -651,10 +651,12 @@ static int dump_empty_fs(struct mount_info *pm)
 {
 	int fd, ret = -1;
 
+	pr_debug("DUMP ==> dump_empty_fs\n");
 	fd = open_mountpoint(pm);
 	if (fd < 0)
 		return fd;
 
+	pr_debug("DUMP ==> is_empty_dir\n");
 	ret = is_empty_dir(fd);
 	if (ret < 0) {
 		pr_err("%s isn't empty\n", pm->fstype->name);

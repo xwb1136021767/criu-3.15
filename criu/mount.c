@@ -1043,10 +1043,12 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 	if (mnt_fd == -1) {
 		int mntns_root;
 
+		pr_debug("DUMP ==> mntns_get_root_fd\n");
 		mntns_root = mntns_get_root_fd(pm->nsid);
 		if (mntns_root < 0)
 			return -1;
 
+		pr_debug("DUMP ==> openat\n");
 		mnt_fd = openat(mntns_root, pm->ns_mountpoint, O_RDONLY);
 		if (mnt_fd < 0) {
 			pr_perror("Can't open %s", pm->ns_mountpoint);
@@ -1358,8 +1360,11 @@ int open_mountpoint(struct mount_info *pm)
 	int fd = -1, cwd_fd, ns_old = -1;
 
 	/* No overmounts and children - the entire mount is visible */
-	if (list_empty(&pm->children) && !mnt_is_overmounted(pm))
+	if (list_empty(&pm->children) && !mnt_is_overmounted(pm)){
+		pr_debug("DUMP ==> list_empty(&pm->children) && !mnt_is_overmounted(pm)\n");
 		return __open_mountpoint(pm, -1);
+	}
+		
 
 	pr_info("Mount is not fully visible %s\n", pm->mountpoint);
 
@@ -3545,6 +3550,8 @@ int __mntns_get_root_fd(pid_t pid)
 	int ret;
 	char path[PATH_MAX + 1];
 
+	pr_debug("DUMP ==> pid = %d\n", pid);
+	pr_debug("DUMP ==> !(root_ns_mask & CLONE_NEWNS) = %d\n", !(root_ns_mask & CLONE_NEWNS));
 	if (mntns_root_pid == pid) /* The required root is already opened */
 		return get_service_fd(ROOT_FD_OFF);
 
@@ -3569,14 +3576,15 @@ int __mntns_get_root_fd(pid_t pid)
 	 * If /proc/pid/root links on '/', it signs that a root of the task
 	 * and a root of mntns is the same.
 	 */
-
+	
+	pr_debug("DUMP ==> open_pid_proc\n");
 	pfd = open_pid_proc(pid);
 	ret = readlinkat(pfd, "root", path, sizeof(path) - 1);
 	if (ret < 0) {
 		close_pid_proc();
 		return ret;
 	}
-
+	
 	path[ret] = '\0';
 
 	if (ret != 1 || path[0] != '/') {
@@ -3597,8 +3605,10 @@ set_root:
 
 int mntns_get_root_fd(struct ns_id *mntns)
 {
-	if (!(root_ns_mask & CLONE_NEWNS))
+	if (!(root_ns_mask & CLONE_NEWNS)){
+		pr_debug("DUMP ==> __mntns_get_root_fd\n");
 		return __mntns_get_root_fd(0);
+	}
 
 	if (!mntns)
 		return -1;
@@ -3624,13 +3634,16 @@ int mntns_get_root_fd(struct ns_id *mntns)
 	if (!mntns->ns_populated) {
 		int fd;
 
+		pr_debug("DUMP ==> fdstore_get\n");
 		fd = fdstore_get(mntns->mnt.root_fd_id);
 		if (fd < 0)
 			return -1;
 
+		pr_debug("DUMP ==> mntns_set_root_fd\n");
 		return mntns_set_root_fd(mntns->ns_pid, fd);
 	}
 
+	pr_debug("DUMP ==> __mntns_get_root_fd\n");
 	return __mntns_get_root_fd(mntns->ns_pid);
 }
 
